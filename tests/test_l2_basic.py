@@ -764,7 +764,7 @@ def test_l2_fdb_aging(npu, dataplane):
             # Wait when the aging time for FDB entries in the FDB table expires, and the entries are removed ...
             time.sleep(fdb_aging_time + 2)
 
-            # Wait when the aging time for FDB entries in the FDB table expires, and the entries are removed ...
+            # Send packet from port2 to port1 and verify on each of ports
             send_packet(dataplane, 1, pkt)
             verify_each_packet_on_each_port(dataplane, [pkt1, pkt1], [0, 2])
 
