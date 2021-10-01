@@ -1,7 +1,7 @@
 import ipaddress
 import pytest
 from sai import SaiObjType
-from ptf.testutils import simple_tcp_packet, send_packet, verify_packets, verify_packet, verify_no_packet_any, verify_no_packet, verify_any_packet_any_port
+from ptf.testutils import simple_tcp_packet, send_packet, verify_packets, verify_packet, verify_no_packet_any, verify_no_packet, verify_any_packet_any_port, simple_arp_packet
 
 
 def test_l2_access_to_access_vlan(npu, dataplane):
@@ -711,3 +711,75 @@ def test_l2_mac_move_1(npu, dataplane):
             npu.set(npu.port_oids[idx], ["SAI_PORT_ATTR_PORT_VLAN_ID", npu.default_vlan_id])
         
         npu.remove(vlan_oid)
+
+def test_l2_arp_request_reply_fdb_learning(npu, dataplane):
+
+    vlan_id = '10'
+    max_port = 3
+    v4_enabled = 1
+    v6_enabled = 1
+    router_mac = '00:22:22:22:22:22'
+    vlan_mbr_oids = []
+
+    vlan_oid = npu.create(SaiObjType.VLAN, ["SAI_VLAN_ATTR_VLAN_ID", vlan_id])
+
+    for idx in range(max_port):
+        npu.remove_vlan_member(npu.default_vlan_oid, npu.dot1q_bp_oids[idx])
+        vlan_mbr = npu.create_vlan_member(vlan_oid, npu.dot1q_bp_oids[idx], "SAI_VLAN_TAGGING_MODE_UNTAGGED")
+        vlan_mbr_oids.append(vlan_mbr)
+        npu.set(npu.port_oids[idx], ["SAI_PORT_ATTR_PORT_VLAN_ID", vlan_id])
+
+    vr_id = npu.create(SaiObjType.VIRTUAL_ROUTER, [])
+    rif_id1 = npu.create(SaiObjType.ROUTER_INTERFACE, ["SAI_ROUTER_INTERFACE_TYPE_VLAN", vr_id, 0, vlan_oid, v4_enabled, v6_enabled, router_mac])
+ 
+
+    try:
+        if npu.run_traffic:
+            # send the test packet(s)
+            print ("Send ARP request packet from port1 ...")
+            arp_req_pkt = simple_arp_packet(eth_dst='ff:ff:ff:ff:ff:ff',
+                                            eth_src='00:11:11:11:11:11',
+                                            vlan_vid=10,
+                                            arp_op=1, #ARP request
+                                            ip_snd='10.10.10.1',
+                                            ip_tgt='10.10.10.2',
+                                            hw_snd='00:11:11:11:11:11')
+            send_packet(dataplane, 0, arp_req_pkt)
+
+            time.sleep(1)
+
+            print ("Send ARP reply packet from port2 ...")
+            arp_rpl_pkt = simple_arp_packet(eth_dst=router_mac,
+                                            eth_src='00:11:22:33:44:55',
+                                            vlan_vid=10,
+                                            arp_op=2, #ARP reply
+                                            ip_snd='10.10.10.2',
+                                            ip_tgt='10.10.10.1',
+                                            hw_snd=router_mac,
+                                            hw_tgt='00:11:22:33:44:55')            
+            send_packet(dataplane, 1, arp_rpl_pkt)
+
+            pkt = simple_tcp_packet(eth_dst='00:11:11:11:11:11',
+                                    eth_src='00:11:22:33:44:55',
+                                    ip_dst='10.10.10.1',
+                                    ip_id=101,
+                                    ip_ttl=64)  
+
+            time.sleep(1)
+
+            print ("Send packet from port2 to port1 and verify only on port1 (src_mac and dst_mac addresses are learned)")
+            print ('#### Sending 00:11:11:11:11:11 | 00:11:22:33:44:55 | 10.10.10.1 | 10.10.10.2 | @ ptf_intf 2 ####')
+            send_packet(dataplane, 1, pkt)
+            verify_packets(dataplane, pkt, [0]) 
+
+    finally:
+        
+        npu.remove(rif_id1)
+        npu.remove(vr_id)
+
+        for idx in range(max_port):
+            npu.remove(vlan_mbr_oids[idx])
+            npu.create_vlan_member(npu.default_vlan_oid, npu.dot1q_bp_oids[idx], "SAI_VLAN_TAGGING_MODE_UNTAGGED")
+            npu.set(npu.port_oids[idx], ["SAI_PORT_ATTR_PORT_VLAN_ID", npu.default_vlan_id])
+            
+            
