@@ -730,7 +730,16 @@ def test_l2_arp_request_reply_fdb_learning(npu, dataplane):
         npu.set(npu.port_oids[idx], ["SAI_PORT_ATTR_PORT_VLAN_ID", vlan_id])
 
     vr_id = npu.create(SaiObjType.VIRTUAL_ROUTER, [])
-    rif_id1 = npu.create(SaiObjType.ROUTER_INTERFACE, ["SAI_ROUTER_INTERFACE_TYPE_VLAN", vr_id, 0, vlan_oid, v4_enabled, v6_enabled, router_mac])
+    rif_id1 = npu.create(SaiObjType.ROUTER_INTERFACE,
+                          [
+                              "SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID", vr_id,                              
+                              "SAI_ROUTER_INTERFACE_ATTR_TYPE", "SAI_ROUTER_INTERFACE_TYPE_PORT",
+                              "SAI_ROUTER_INTERFACE_ATTR_PORT_ID", npu.port_oids[0],
+                              "SAI_ROUTER_INTERFACE_TYPE_VLAN", vlan_id,
+                              "SAI_VIRTUAL_ROUTER_ATTR_ADMIN_V4_STATE", v4_enabled,
+                              "SAI_VIRTUAL_ROUTER_ATTR_ADMIN_V6_STATE", v6_enabled,
+                              "SAI_VIRTUAL_ROUTER_ATTR_SRC_MAC_ADDRESS", router_mac,
+                          ])
  
 
     try:
@@ -781,5 +790,6 @@ def test_l2_arp_request_reply_fdb_learning(npu, dataplane):
             npu.remove(vlan_mbr_oids[idx])
             npu.create_vlan_member(npu.default_vlan_oid, npu.dot1q_bp_oids[idx], "SAI_VLAN_TAGGING_MODE_UNTAGGED")
             npu.set(npu.port_oids[idx], ["SAI_PORT_ATTR_PORT_VLAN_ID", npu.default_vlan_id])
-            
+
+        npu.remove(vlan_oid) 
             
