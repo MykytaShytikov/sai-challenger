@@ -734,7 +734,6 @@ def test_l2_arp_request_reply_fdb_learning(npu, dataplane):
                           [
                               "SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID", vr_id,                              
                               "SAI_ROUTER_INTERFACE_ATTR_TYPE", "SAI_ROUTER_INTERFACE_TYPE_PORT",
-                              "SAI_ROUTER_INTERFACE_ATTR_PORT_ID", npu.port_oids[0],
                               "SAI_ROUTER_INTERFACE_TYPE_VLAN", vlan_id,
                               "SAI_VIRTUAL_ROUTER_ATTR_ADMIN_V4_STATE", v4_enabled,
                               "SAI_VIRTUAL_ROUTER_ATTR_ADMIN_V6_STATE", v6_enabled,
